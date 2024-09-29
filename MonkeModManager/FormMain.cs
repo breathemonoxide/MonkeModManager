@@ -34,132 +34,16 @@ namespace MonkeModManager
 
         private void FormMain_Load(object sender, EventArgs e)
         {
-            LocationHandler();
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-            releases = new List<ReleaseInfo>();
-            var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString();
-            labelVersion.Text = "Monke Mod Manager v" + version.Substring(0, version.Length - 2);
-            if (!File.Exists(Path.Combine(InstallDirectory, "winhttp.dll")))
-            {
-                if (File.Exists(Path.Combine(InstallDirectory, "mods.disable")))
-                {
-                    buttonToggleMods.Text = "Enable Mods";
-                    modsDisabled = true;
-                    buttonToggleMods.BackColor = System.Drawing.Color.IndianRed;
-                    buttonToggleMods.Enabled = true;
-                }
-                else
-                {
-                    buttonToggleMods.Enabled = false;
-                }
-            }
-            else
-            {
-                buttonToggleMods.Enabled = true;
-            }
-            new Thread(() =>
-            {
-                LoadRequiredPlugins();
-            }).Start();
-        }
+           
 
         #region ReleaseHandling
 
-        private void LoadReleases()
-        {
-#if !DEBUG
-            var decodedMods = JSON.Parse(DownloadSite("https://raw.githubusercontent.com/DeadlyKitten/MonkeModInfo/master/modinfo.json"));
-            var decodedGroups = JSON.Parse(DownloadSite("https://raw.githubusercontent.com/DeadlyKitten/MonkeModInfo/master/groupinfo.json"));
-#else
-            var decoded = JSON.Parse(File.ReadAllText("C:/Users/Steven/Desktop/testmods.json"));
-#endif
-            var allMods = decodedMods.AsArray;
-            var allGroups = decodedGroups.AsArray;
-
-            for (int i = 0; i < allMods.Count; i++)
-            {
-                JSONNode current = allMods[i];
-                ReleaseInfo release = new ReleaseInfo(current["name"], current["author"], current["version"], current["group"], current["download_url"], current["install_location"], current["git_path"], current["dependencies"].AsArray);
-                //UpdateReleaseInfo(ref release);
-                releases.Add(release);
-            }
-
-
-            allGroups.Linq.OrderBy(x => x.Value["rank"]);
-            for (int i = 0; i < allGroups.Count; i++)
-            {
-                JSONNode current = allGroups[i];
-                if (releases.Any(x => x.Group == current["name"]))
-                {
-                    groups.Add(current["name"], groups.Count());
-                }
-            }
-            groups.Add("Uncategorized", groups.Count());
-
-            foreach (ReleaseInfo release in releases)
-            {
-                foreach (string dep in release.Dependencies)
-                {
-                    releases.Where(x => x.Name == dep).FirstOrDefault()?.Dependents.Add(release.Name);
-                }
-            }
-            //WriteReleasesToDisk();
+      
         }
 
         private void LoadRequiredPlugins()
         {
-            CheckVersion();
-            UpdateStatus("Getting latest version info...");
-            LoadReleases();
-            this.Invoke((MethodInvoker)(() =>
-            {//Invoke so we can call from current thread
-             //Update checkbox's text
-                Dictionary<string, int> includedGroups = new Dictionary<string, int>();
-
-                for (int i = 0; i < groups.Count(); i++)
-                {
-                    var key = groups.First(x => x.Value == i).Key;
-                    var value = listViewMods.Groups.Add(new ListViewGroup(key, HorizontalAlignment.Left));
-                    groups[key] = value;
-                }
-
-                foreach (ReleaseInfo release in releases)
-                {
-                    ListViewItem item = new ListViewItem();
-                    item.Text = release.Name;
-                    if (!String.IsNullOrEmpty(release.Version)) item.Text = $"{release.Name} - {release.Version}";
-                    if (!String.IsNullOrEmpty(release.Tag)) { item.Text = string.Format("{0} - ({1})",release.Name, release.Tag); };
-                    item.SubItems.Add(release.Author);
-                    item.Tag = release;
-                    if (release.Install)
-                    {
-                        listViewMods.Items.Add(item);
-                    }
-                    CheckDefaultMod(release, item);
-
-                    if (release.Group == null || !groups.ContainsKey(release.Group))
-                    {
-                        item.Group = listViewMods.Groups[groups["Uncategorized"]];
-                    }
-                    else if (groups.ContainsKey(release.Group))
-                    {
-                        int index = groups[release.Group];
-                        item.Group = listViewMods.Groups[index];
-                    }
-                    else
-                    {
-                        //int index = listViewMods.Groups.Add(new ListViewGroup(release.Group, HorizontalAlignment.Left));
-                        //item.Group = listViewMods.Groups[index];
-                    }
-                }
-
-                tabControlMain.Enabled = true;
-                buttonInstall.Enabled = true;
-
-            }));
-           
-            UpdateStatus("Release info updated!");
-
+          
         }
 
         private void UpdateReleaseInfo(ref ReleaseInfo release)
@@ -167,16 +51,10 @@ namespace MonkeModManager
             Thread.Sleep(100); //So we don't get rate limited by github
 
             string releaseFormatted = BaseEndpoint + release.GitPath + "/releases";
-            var rootNode = JSON.Parse(DownloadSite(releaseFormatted))[0];
+          
             
-            release.Version = rootNode["tag_name"];
             
-            var assetsNode = rootNode["assets"];
-            var downloadReleaseNode = assetsNode[release.ReleaseId];
-            release.Link = downloadReleaseNode["browser_download_url"];
-            
-            var uploaderNode = downloadReleaseNode["uploader"];
-            if (release.Author.Equals(String.Empty)) release.Author = uploaderNode["login"];
+          
         }
 
         #endregion // ReleaseHandling
@@ -227,7 +105,7 @@ namespace MonkeModManager
 
             this.Invoke((MethodInvoker)(() =>
             { //Invoke so we can call from any thread
-                buttonToggleMods.Enabled = true;
+               
             }));
         }
 
@@ -268,78 +146,10 @@ namespace MonkeModManager
             }
         }
 
-        private void listViewMods_ItemChecked(object sender, ItemCheckedEventArgs e)
-        {
-            ReleaseInfo release = (ReleaseInfo)e.Item.Tag;
+       
+                          
 
-            if (release.Dependencies.Count > 0)
-            {
-                foreach (ListViewItem item in listViewMods.Items)
-                {
-                    var plugin = (ReleaseInfo)item.Tag;
-
-                    if (plugin.Name == release.Name) continue;
-
-                    // if this depends on plugin
-                    if (release.Dependencies.Contains(plugin.Name))
-                    {
-                        if (e.Item.Checked)
-                        {
-                            item.Checked = true;
-                            item.ForeColor = System.Drawing.Color.DimGray;
-                        }
-                        else
-                        {
-                            release.Install = false;
-                            if (releases.Count(x => plugin.Dependents.Contains(x.Name) && x.Install) <= 1)
-                            {
-                                item.Checked = false;
-                                item.ForeColor = System.Drawing.Color.Black;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // don't allow user to uncheck if a dependent is checked
-            if (release.Dependents.Count > 0)
-            {
-                if (releases.Count(x => release.Dependents.Contains(x.Name) && x.Install) > 0)
-                {
-                    e.Item.Checked = true;
-                }
-            }
-
-            if (release.Name.Contains("BepInEx")) { e.Item.Checked = true; };
-            release.Install = e.Item.Checked;
-        }
-
-         private void listViewMods_DoubleClick(object sender, EventArgs e)
-        {
-            OpenLinkFromRelease();
-        }
-
-        private void buttonModInfo_Click(object sender, EventArgs e)
-        {
-            OpenLinkFromRelease();
-        }
-
-        private void viewInfoToolStripMenuItem_Click(object sender, EventArgs e)
-         {
-             OpenLinkFromRelease();
-         }
-
-        private void listViewMods_ItemSelectionChanged(object sender, ListViewItemSelectionChangedEventArgs e)
-        {
-            if (listViewMods.SelectedItems.Count > 0)
-            {
-                buttonModInfo.Enabled = true;
-            }
-            else
-            {
-                buttonModInfo.Enabled = false;
-            }
-        }
+         
 
         private void buttonUninstallAll_Click(object sender, EventArgs e)
         {
@@ -573,42 +383,7 @@ namespace MonkeModManager
         #region Helpers
 
         private CookieContainer PermCookie;
-        private string DownloadSite(string URL)
-        {
-            try
-            {
-                if (PermCookie == null) { PermCookie = new CookieContainer(); }
-                HttpWebRequest RQuest = (HttpWebRequest)HttpWebRequest.Create(URL);
-                RQuest.Method = "GET";
-                RQuest.KeepAlive = true;
-                RQuest.CookieContainer = PermCookie;
-                RQuest.ContentType = "application/x-www-form-urlencoded";
-                RQuest.Referer = "";
-                RQuest.UserAgent = "Monke-Mod-Manager";
-                RQuest.Proxy = null;
-#if DEBUG
-                RQuest.Headers.Add("Authorization", $"Token {File.ReadAllText("../../token.txt")}");
-#endif
-                HttpWebResponse Response = (HttpWebResponse)RQuest.GetResponse();
-                StreamReader Sr = new StreamReader(Response.GetResponseStream());
-                string Code = Sr.ReadToEnd();
-                Sr.Close();
-                return Code;
-            }
-            catch (Exception ex)
-            {
-                if (ex.Message.Contains("403"))
-                {
-                    MessageBox.Show("Failed to update version info, GitHub has rate limited you, please check back in 15 - 30 minutes", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                else
-                {
-                    MessageBox.Show("Failed to update version info, please check your internet connection", this.Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                Process.GetCurrentProcess().Kill();
-                return null;
-            }
-        }
+        
 
         private void UnzipFile(byte[] data, string directory)
         {
@@ -633,7 +408,7 @@ namespace MonkeModManager
             string formattedText = string.Format("Status: {0}", status);
             this.Invoke((MethodInvoker)(() =>
             { //Invoke so we can call from any thread
-                labelStatus.Text = formattedText;
+             
             }));
         }
   
@@ -672,8 +447,8 @@ namespace MonkeModManager
         private void CheckVersion()
         {
             UpdateStatus("Checking for updates...");
-            Int16 version = Convert.ToInt16(DownloadSite("https://raw.githubusercontent.com/DeadlyKitten/MonkeModManager/master/update.txt"));
-            if (version > CurrentVersion)
+            
+           
             {
                 this.Invoke((MethodInvoker)(() =>
                 {
@@ -689,20 +464,11 @@ namespace MonkeModManager
         {
             this.Invoke((MethodInvoker)(() =>
                 {
-                    buttonInstall.Enabled = enabled;
+               
                 }));
         }
 
-        private void OpenLinkFromRelease()
-        {
-            if (listViewMods.SelectedItems.Count > 0)
-            {
-                ReleaseInfo release = (ReleaseInfo)listViewMods.SelectedItems[0].Tag;
-                UpdateStatus($"Opening GitHub page for {release.Name}");
-                Process.Start(string.Format("https://github.com/{0}", release.GitPath));
-            }
-            
-        }
+       
 
 #endregion // Helpers
 
@@ -825,15 +591,21 @@ namespace MonkeModManager
 
 #endregion // RegHelper
 
-        private void buttonToggleMods_Click(object sender, EventArgs e)
+       
+
+        private void listViewMods_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void button1_Click(object sender, EventArgs e)
         {
             if (modsDisabled)
             {
                 if (File.Exists(Path.Combine(InstallDirectory, "mods.disable")))
                 {
                     File.Move(Path.Combine(InstallDirectory, "mods.disable"), Path.Combine(InstallDirectory, "winhttp.dll"));
-                    buttonToggleMods.Text = "Disable Mods";
-                    buttonToggleMods.BackColor = System.Drawing.Color.Transparent;
+                   
                     modsDisabled = false;
                     UpdateStatus("Enabled mods!");
                 }
@@ -843,12 +615,16 @@ namespace MonkeModManager
                 if (File.Exists(Path.Combine(InstallDirectory, "winhttp.dll")))
                 {
                     File.Move(Path.Combine(InstallDirectory, "winhttp.dll"), Path.Combine(InstallDirectory, "mods.disable"));
-                    buttonToggleMods.Text = "Enable Mods";
-                    buttonToggleMods.BackColor = System.Drawing.Color.IndianRed;
+                   
                     modsDisabled = true;
                     UpdateStatus("Disabled mods!");
                 }
             }
+        }
+
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            Process.Start("https://discord.gg/ux4ZbBC6JQ");
         }
     }
 
